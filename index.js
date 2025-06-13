@@ -3,10 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./Src/db/index.js";
 import userRouter from "./Src/routes/user.route.js";
-import fanRouter from "./Src/routes/fan.route.js";
-import mobileRouter from "./Src/routes/mobile.route.js";
-import batteryRouter from "./Src/routes/battery.route.js";
-import laptopRouter from "./Src/routes/laptop.route.js";
+import categoryRouter from "./Src/routes/category.route.js";
+import productRouter from "./Src/routes/products.route.js";
 import orderRouter from "./Src/routes/order.route.js";
 import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
@@ -27,11 +25,9 @@ app.use(express.json());
 
 // Routes
 app.use("/api/user", userRouter);
-app.use("/api/product/fan", fanRouter);
-app.use("/api/product/mobile", mobileRouter);
-app.use("/api/product/laptop", laptopRouter);  // Corrected 'leptop' to 'laptop'
-app.use("/api/product/battery", batteryRouter);
-app.use("/api/admin", orderRouter);
+app.use("/api/category", categoryRouter);
+app.use("/api/product", productRouter);
+app.use("/api/order", orderRouter);
 
 // Default Route
 app.get("/", (req, res) => {

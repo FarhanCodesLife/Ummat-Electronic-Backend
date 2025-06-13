@@ -1,5 +1,5 @@
-import Mobile from "../models/mobile.models.js";
-import userModels from "../models/user.models.js";
+import { Mobile } from "../models/mobile.models.js";
+import { User } from "../models/user.models.js";
 import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
@@ -103,7 +103,7 @@ export const createMobile = async (req, res) => {
       return res.status(500).json({ message: "Error occurred while uploading image" });
     }
 
-    const User = await userModels.findById(authorId);
+    const User = await User.findById(authorId);
     if (!User) {
       return res.status(404).json({ message: "User not found" });
     }

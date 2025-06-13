@@ -1,5 +1,5 @@
-import Battery from "../models/battery.models.js";
-import User from "../models/user.models.js";
+import { Battery } from "../models/battery.models.js";
+import { User } from "../models/user.models.js";
 import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";

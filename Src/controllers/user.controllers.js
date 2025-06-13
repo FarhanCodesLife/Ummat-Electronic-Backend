@@ -1,69 +1,70 @@
-
-
-
-import userModels from "../models/user.models.js";
+import { User } from "../models/user.models.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 
-// Helper functions for token generation
+// Generate access token
 const generateAccessToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email },
+    { id: user._id, email: user.email, role: user.role },
     process.env.SECRET_KEY,
     { expiresIn: "1d" }
   );
 };
 
+// Generate refresh token
 const generateRefreshToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email },
+    { id: user._id, email: user.email, role: user.role },
     process.env.SECRET_KEY,
     { expiresIn: "7d" }
   );
 };
 
-// Nodemailer configuration
+// Nodemailer transporter
 const transporter = nodemailer.createTransport({
   host: "smtp.ethereal.email",
   port: 587,
-  secure: false, // Use true for 465 port, otherwise false
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USER || "kyle.glover85@ethereal.email", // Replace with environment variable for better security
-    pass: process.env.EMAIL_PASS || "AFwsrJmbW9M1uGQCxZ", // Use environment variable
+    user: process.env.EMAIL_USER || "kyle.glover85@ethereal.email",
+    pass: process.env.EMAIL_PASS || "AFwsrJmbW9M1uGQCxZ",
   },
 });
 
-// Create user function
+// Create User
 export const createUser = async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password } = req.body;
 
-  // Validate required fields
   if (!name || !email || !password) {
     return res.status(400).json({ message: "All fields are required" });
   }
 
   try {
-    const existingUser = await userModels.findOne({ email });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
     const hashPassword = await bcrypt.hash(password, 10);
 
-    const user = await userModels.create({
+    // Assign role
+    const role = (email === process.env.ADMIN_EMAIL) ? "admin" : "user";
+
+    const user = await User.create({
       name,
       email,
       password: hashPassword,
       role,
     });
 
+    // Send welcome email
     const info = await transporter.sendMail({
-      from: '"Kyle Glover 👻" <kyle.glover85@ethereal.email>', 
-      to: email, 
+      from: '"Platform 👻" <kyle.glover85@ethereal.email>',
+      to: email,
       subject: "Welcome to the platform!",
-      text: `Hi ${name}, welcome to our platform!`, 
-      html: `<b>Hi ${name},</b><p>Welcome to our platform!</p>`, 
+      text: `Hi ${name}, welcome to our platform!`,
+      html: `<b>Hi ${name},</b><p>Welcome to our platform!</p>`,
     });
 
     console.log("Message sent: %s", info.messageId);
@@ -74,11 +75,13 @@ export const createUser = async (req, res) => {
       message: "User created successfully",
       user,
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+// Login User
 export const logInUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -87,7 +90,7 @@ export const logInUser = async (req, res) => {
   }
 
   try {
-    const user = await userModels.findOne({ email });
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -104,16 +107,21 @@ export const logInUser = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({ message: "Login successful", user, accessToken });
+    res.status(200).json({
+      message: "Login successful",
+      user,
+      accessToken,
+    });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Refresh token function
+// Refresh Token
 export const refreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.cookies;
@@ -124,15 +132,9 @@ export const refreshToken = async (req, res) => {
 
     const user = jwt.verify(refreshToken, process.env.SECRET_KEY);
 
-    if (!user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    // Generate new tokens
     const accessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken(user);
 
-    // Update refresh token cookie
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -140,19 +142,22 @@ export const refreshToken = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({ message: "Token refreshed successfully", accessToken });
+    res.status(200).json({
+      message: "Token refreshed successfully",
+      accessToken,
+    });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(401).json({ message: "Invalid or expired refresh token" });
   }
 };
 
-// Logout function
+// Logout
 export const logoutUser = async (req, res) => {
   try {
-    // Clear the refresh token cookie with matching options
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Secure only in production
+      secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
     });
     res.json({ message: "Logout successful" });
@@ -161,12 +166,69 @@ export const logoutUser = async (req, res) => {
   }
 };
 
-
-// Get all users function
+// Get All Users
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await userModels.find();
+    const users = await User.find();
     res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get User by ID
+export const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate("orders")
+      .populate("installmentPlans");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update User
+export const updateUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const { name, role, password } = req.body;
+
+    if (name) user.name = name;
+
+    // Don't allow role change via public API; optionally remove this:
+    // if (role) user.role = role;
+
+    if (password) {
+      user.password = await bcrypt.hash(password, 10);
+    }
+
+    await user.save();
+
+    res.json({ message: "User updated successfully", user });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Delete User
+export const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "User deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
