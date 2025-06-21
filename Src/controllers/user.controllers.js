@@ -3,23 +3,32 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 
-// Generate access token
 const generateAccessToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email, role: user.role },
+    {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      name: user.name || user.username, // ✅ Include name
+    },
     process.env.SECRET_KEY,
     { expiresIn: "1d" }
   );
 };
 
-// Generate refresh token
 const generateRefreshToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email, role: user.role },
+    {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      name: user.name || user.username, // ✅ Include name
+    },
     process.env.SECRET_KEY,
     { expiresIn: "7d" }
   );
 };
+
 
 // Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -103,11 +112,29 @@ export const logInUser = async (req, res) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
+    // res.cookie("refreshToken", refreshToken, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: "Lax",
+    //   maxAge: 7 * 24 * 60 * 60 * 1000,
+    // });
+
+     // ✅ Set accessToken as HTTP-only cookie
+     res.cookie("accessToken", accessToken, {
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: "Lax",
+      path: "/",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+
+    // ✅ Set refreshToken as HTTP-only cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     res.status(200).json({
@@ -136,9 +163,9 @@ export const refreshToken = async (req, res) => {
     const newRefreshToken = generateRefreshToken(user);
 
     res.cookie("refreshToken", newRefreshToken, {
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "Lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -155,11 +182,20 @@ export const refreshToken = async (req, res) => {
 // Logout
 export const logoutUser = async (req, res) => {
   try {
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
+    res.clearCookie("accessToken", {
+      httpOnly: false, // same as you set it
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "Lax",
+      path: "/",
     });
+
+    res.clearCookie("refreshToken", {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Lax",
+      path: "/",
+    });
+
     res.json({ message: "Logout successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -233,3 +269,27 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+// Get currently logged in user
+export const getCurrentUser = async (req, res) => {
+  try {
+    const token = req.cookies.accessToken;
+
+    if (!token) {
+      return res.status(401).json({ message: "Not logged in" });
+    }
+
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+
+    const user = await User.findById(decoded.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(401).json({ message: "Invalid token" });
+  }
+};
+

@@ -15,13 +15,21 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Middleware
+// ✅ This is correct and must be on top
 app.use(cors({
-    origin: "*", // Allow all origins
-    credentials: true,
-}));
+    origin: "http://localhost:3000", // frontend origin
+    credentials: true               // ✅ required to allow cookies to be sent/received
+  }));
+  
+
+// Middleware
+// app.use(cors({
+//     origin: "*", // Allow all origins
+//     credentials: true,
+// }));
 app.use(cookieParser());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use("/api/user", userRouter);

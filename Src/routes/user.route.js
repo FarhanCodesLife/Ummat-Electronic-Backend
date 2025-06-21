@@ -7,7 +7,8 @@ import {
   getAllUsers,
   getUserById,
   updateUser,
-  deleteUser
+  deleteUser,
+  getCurrentUser
 } from "../controllers/user.controllers.js";
 
 import {
@@ -22,6 +23,8 @@ const router = express.Router();
 // 🟢 Public Routes
 router.post("/register", createUser);
 router.post("/login", logInUser);
+router.get("/me", getCurrentUser);
+
 router.post("/refresh", refreshToken);
 router.post("/logout", logoutUser);
 
