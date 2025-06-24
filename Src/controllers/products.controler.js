@@ -15,16 +15,15 @@ export const addProduct = async (req, res) => {
 console.log("req.files:", req.files);
   try {
     const { category, name, ...productData } = req.body;
+    
+    const specs = req.body.specs || {};
+    console.log("✅ Extracted Specs:", specs);
 
-    // 👇 Fix: convert FormData keys like specs[power] to { power: 'value' }
-    const specs = extractSpecs(req.body);
-    // Validate category
     const Model = Product.discriminators[category];
     if (!Model) {
       return res.status(400).json({ message: "Invalid category!" });
     }
 
-    // Slug creation
     const slug = slugify(name, { lower: true, strict: true });
 
     const existing = await Product.findOne({ slug });
@@ -52,8 +51,9 @@ const product = await Model.create({
   slug,
   images,
   ...productData,
-  ...specs, // 👈 Now all fan/laptop/mobile fields will be set properly
+  ...specs, // ✅ Dynamic category-specific specs
 });
+
 
     res.status(201).json({
       message: `${category} product created successfully`,

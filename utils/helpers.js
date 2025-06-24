@@ -1,15 +1,11 @@
+// utils/helpers.js
 export const extractSpecs = (body) => {
-    const specs = {};
-    for (const key in body) {
-      const match = key.match(/^specs\[(.+)\]$/);
-      if (match) {
-        let val = body[key];
-        if (!isNaN(val)) val = Number(val);
-        if (typeof val === "string") val = val.trim();
-        specs[match[1]] = val;
-        delete body[key];
-      }
+  const specs = {};
+  for (const key in body) {
+    const match = key.match(/^specs\[(.+)\]$/);
+    if (match) {
+      specs[match[1]] = body[key];
     }
-    return specs;
-  };
-  
+  }
+  return specs;
+};
