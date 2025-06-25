@@ -115,32 +115,46 @@ export const getProductBySlug = async (req, res) => {
 // ✅ Update Product
 export const updateProduct = async (req, res) => {
   try {
-    const { category, name, ...updateData } = req.body;
+    const { category, name, removedImages = "[]", ...rest } = req.body;
 
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    // If name changed, update slug
+    // ✅ Slug Update
     if (name && name !== product.name) {
       const slug = slugify(name, { lower: true, strict: true });
-      updateData.slug = slug;
-
-      const existing = await Product.findOne({ slug });
-      if (existing && existing._id.toString() !== req.params.id) {
+      const exists = await Product.findOne({ slug });
+      if (exists && exists._id.toString() !== req.params.id) {
         return res.status(400).json({ message: "Another product with this name exists!" });
       }
+      rest.slug = slug;
     }
+
+    // ✅ Parse and attach specs
+    const specs = req.body.specs ? JSON.parse(req.body.specs) : {};
+    
+    // ✅ Parse removed images array
+    const removed = JSON.parse(removedImages);
+    const finalImages = (product.images || []).filter(img => !removed.includes(img));
+
+    // ✅ Upload new images
+    let newImages = [];
+    if (req.files?.length) {
+      newImages = await uploadMultipleToCloudinary(req.files);
+    }
+
+    const updatedImages = [...finalImages, ...newImages];
 
     const Model = Product.discriminators[product.category] || Product;
 
-    // Update images if new ones uploaded
-    if (req.files?.length) {
-      updateData.images = req.files.map((file) => file.path);
-    }
-
     const updatedProduct = await Model.findByIdAndUpdate(
       req.params.id,
-      { name, ...updateData },
+      {
+        name,
+        ...rest,
+        specs,
+        images: updatedImages,
+      },
       { new: true }
     );
 
@@ -154,11 +168,66 @@ export const updateProduct = async (req, res) => {
   }
 };
 
+
+
+// ✅ Update Product by Slug
+export const updateProductBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const product = await Product.findOne({ slug });
+
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    const { category, name, specs, removedImages, ...updateData } = req.body;
+
+    if (name && name !== product.name) {
+      const newSlug = slugify(name, { lower: true, strict: true });
+      updateData.slug = newSlug;
+
+      const existing = await Product.findOne({ slug: newSlug });
+      if (existing && existing._id.toString() !== product._id.toString()) {
+        return res.status(400).json({ message: "Another product with this name exists!" });
+      }
+    }
+
+    // Update images
+    if (req.files?.length) {
+      updateData.images = req.files.map((file) => file.path);
+    }
+
+    // Remove old images if specified
+    if (removedImages) {
+      const removeList = JSON.parse(removedImages);
+      updateData.images = (updateData.images || product.images).filter(img => !removeList.includes(img));
+    }
+
+    // Parse and merge specs
+    if (specs) {
+      const parsedSpecs = JSON.parse(specs);
+      Object.assign(updateData, parsedSpecs);
+    }
+
+    const Model = Product.discriminators[product.category] || Product;
+    const updated = await Model.findByIdAndUpdate(product._id, { name, ...updateData }, { new: true });
+
+    res.status(200).json({ message: "Product updated successfully", product: updated });
+  } catch (err) {
+    console.error("Update Error:", err);
+    res.status(500).json({ message: "Server error", error: err });
+  }
+};
+
+
+
+
 // ✅ Delete Product
 export const deleteProduct = async (req, res) => {
   try {
+    console.log("Deleting product with ID:", req.params.id);
+
     const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product)
+      return res.status(404).json({ message: "Product not found" });
 
     res.status(200).json({ message: "Product deleted successfully" });
   } catch (error) {
@@ -166,3 +235,4 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error", error });
   }
 };
+

@@ -50,6 +50,12 @@ export const uploadToCloudinary = async (localPath) => {
       folder: "products",
     });
 
+    // ✅ Delete the file after successful upload
+    if (fs.existsSync(resolvedPath)) {
+      await fs.promises.unlink(resolvedPath);
+      console.log("🗑️ Local file deleted:", resolvedPath);
+    }
+
     if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
 
     return result.secure_url;

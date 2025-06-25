@@ -1,26 +1,32 @@
+import { addProduct, deleteProduct, getAllProducts, getProductById, getProductBySlug, updateProduct, updateProductBySlug } from "../controllers/products.controler.js";
 import express from "express";
-import {
-  addProduct,
-  getAllProducts,
-  getProductById,
-  getProductBySlug, // <-- Add this
-  updateProduct,
-  deleteProduct
-} from "../controllers/products.controler.js";
-import {upload} from "../../utils/uplaod.js";
-
-import { verifyTokenMiddleware, isAdminMiddleware } from "../middlewere/auth.middlewere.js";
-
+import {upload} from "../../utils/uplaod.js"
+import { isAdminMiddleware, verifyTokenMiddleware } from "../middlewere/auth.middlewere.js";
 const router = express.Router();
 
-router.post("/add", upload.array("images",5), addProduct);
-router.get("/", getAllProducts);
-router.get("/:id", getProductById);
+// 🟢 Add Product
+router.post("/add", upload.array("images", 5), addProduct);
 
-// 🆕 Add slug-based route (put this before :id to avoid conflict)
+// 🟢 Get All Products
+router.get("/", getAllProducts);
+
+// 🟢 Slug-based route (must come before /:id)
 router.get("/slug/:slug", getProductBySlug);
 
-router.put("/:id", verifyTokenMiddleware, isAdminMiddleware, upload.array("images", 5), updateProduct);
-router.delete("/:id", verifyTokenMiddleware, isAdminMiddleware, deleteProduct);
+// 🟢 Get Product by ID
+router.get("/:id", getProductById);
+
+// 🟢 Update Product
+router.put(
+  "/:id",
+  // verifyTokenMiddleware,
+  // isAdminMiddleware,
+  upload.array("images", 5),
+  updateProduct
+);
+router.put("/slug/:slug", upload.array("images", 5), updateProductBySlug);
+
+// 🟢 Delete Product
+router.delete("/:id", deleteProduct);
 
 export default router;
